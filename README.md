@@ -1,2 +1,6 @@
 # Spatio-Temporal_analysis
-spatio-temporal analysis and data mining
+Spatio-temporal analysis and data mining
+
+
+Exploratory spatio-temporal analysis & a space-time random forest model to predict daily rainfall as a func of:
+covariates, buffer distances (space) and time. 
