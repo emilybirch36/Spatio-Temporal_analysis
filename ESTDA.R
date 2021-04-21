@@ -54,10 +54,19 @@ hist(co_prec$PRCP)
 abline(v=mean_daily_precip, col="red")
 
 
+# normalise precip because the distribution is skewed 
+norm_prec <- log(co_prec$PRCP)
+hist(norm_prec)
+
+
 # the quantile-quantile QQ plot is used to examine how the distribution diverges from normality/ the theoretical normal distribution (red line)
 # QQ plot shows the distribution diverges at the tail in the upper quartile
-qqnorm(co_prec$PRCP)
-qqline(co_prec$PRCP, col="red")
+qqnorm(norm_prec)
+qqline(norm_prec, col="red")
+
+# qqnorm(co_prec$PRCP)
+# qqline(co_prec$PRCP, col="red")
+
 
 
 
@@ -66,11 +75,11 @@ qqline(co_prec$PRCP, col="red")
 
 # Pairwise scatterplot to look at relationship between precip, latitude, longitude and elevation 
 # relationships dont show much, no vast diff in lat, long at Boulder, Colorado 
-pairs(~LONGITUDE+LATITUDE+ELEVATION+mean(PRCP),data=co_prec,
+pairs(~LONGITUDE+LATITUDE+ELEVATION+PRCP,data=co_prec,
       main="Simple Scatterplot Matrix")
 
 
-# plot precip on map
+# plot precip on map. SPACE
 library(ggplot2)
 library(OpenStreetMap)
 library(raster)
@@ -84,7 +93,7 @@ min(co_prec$LONGITUDE, na.rm = TRUE)
 min(co_prec$LATITUDE, na.rm = TRUE)
 
 
-# BACKGROUND MAP NEEDS FIXING/ADJUSTING
+# BACKGROUND MAP NEEDS FIXING/ADJUSTING- coordinates of backgorund map are slightly off centre (maximum x needs to be larger)
 year_2014 <- filter(co_prec, co_prec$year =="2014")
 # Change the column name:
 colnames(year_2014)[7]<-"precvalue"
@@ -92,10 +101,13 @@ colnames(year_2014)[7]<-"precvalue"
 year_2014[,3:4] <-projectMercator(year_2014$LATITUDE, year_2014$LONGITUDE)
 # Download a map tile:
 #max lat upper left, min long lower 
-map <- openmap(c(39.2202,-105.6), c(40.2494,-105.0571),type= 'esri-topo')
+map <- openmap(c(105.1805,105.1041), c(40.0539,38.5751),type= 'esri-topo')
 
 autoplot.OpenStreetMap(map)+ geom_point (data= year_2014, aes(x=LONGITUDE,y=LATITUDE, color=precvalue, size=precvalue))+ ggtitle("Annual Average Temperature in Boulder, Colorado, 2014")
 
+# 39.2202,-105.6), c(40.2494,-105.2
+
+# c(W 105°18'05"--W 105°10'41"/N 40°05'39"--N 39°57'51")
 
 
 
@@ -108,37 +120,40 @@ co_prec$month = as.integer(strftime(as.POSIXct(paste(co_prec$DATE), format="%Y-%
 head(co_prec,5)
 
 
+# plot line graph- average temp across all stations per day, one line on graph for each year 2014-2017. Shows interannual vaiation.
 # plot average rainfall at each station. DOESNT WORK
-co_prec %>%
-  group_by(STATION) %>%
-  summarise_at(vars(-doy, -DATE, -year, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> station_av_rain
-# head(station_av_rain)
-ggplot(aes(x=month,y=PRCP),data=station_av_rain) + geom_line(stat='identity') + labs(y='Mean Daily Rainfall per Station')
+  co_prec %>%
+    group_by(STATION) %>%
+    summarise_at(vars(-doy, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> station_av_rain
+  head(station_av_rain)
+  ggplot(aes(x=year,y=PRCP),data=station_av_rain) + geom_line(stat='identity') + labs(y='Mean Daily Rainfall per Station')
 
 
-# DOESNT WORK
-co_prec %>%
-  group_by(month) %>%
-  summarise(mrain =mean(PRCP)) -> rain_month
-# head(rain_years)
-  ggplot(aes(x=month,y=mrain),data=rain_month) + geom_line(stat='identity') + labs(y='Mean monthly Rainfall')  
   
+  # Multiple line plot of day of year against precipitation for 10 chosen stations. Shows annual/seasonal variation
+  # Get station names for plot
+  co_prec$STATION
+  tail(co_prec$STATION, n = 10000)
+  # note that there are large peaks in rainfall between the 100-150th day of the year. 
+  library(lattice)
+  STATION.chosen=c("US1COJF0326", "US1COGL0015","US1COJF0327","US1COGL0010", "US1COJF0290", "US1COBO0018","US1COBO0014","US1COBO0019","US1COBO0022","US1COBO0304","US1COBO0306")
+  #Create a variable containing just the selected stations
+  a <- co_prec[co_prec$STATION %in% STATION.chosen,]
   
- # plot per station. TOO many stations, plot station 1-10?
- co_prec %>% group_by(year, STATION) %>% 
-    summarise(total_rain=sum(PRCP)) -> rain_years_st
-  ggplot(aes(x=year,y=total_rain),data=rain_years_st) + 
-    geom_smooth() + labs(y='Mean Annual Rainfall') +
-    facet_wrap(~STATION,nrow=4) + theme_light() 
-  
-  
-  
-  
+  xyplot(PRCP ~ doy | STATION, xlab = "doy", type = "l",
+         layout = c(5, 2),
+         data=a,
+         main = "Precipitation in Boulder, Colorado")
   
   
   
 
-
+  
+ 
+  
+  
+  
+  
 # GRAPHS
 # make graph of average temps at stations
 
