@@ -207,7 +207,7 @@ head(co_prec,5)
   acf(co_prec$PRCP, na.action = na.pass) 
   
   
-# ACF plot shows average precip....
+# ACF plot shows average annual precipitation
   co_prec %>%
   group_by(STATION) %>% 
   group_by(year)
@@ -215,8 +215,14 @@ head(co_prec,5)
   acf(station_av_rain$PRCP, na.action = na.pass)
       
 
+# PACF. partial autocorrelation function for one of the weather stations
+  STATION.chosen=c("US1COJF0326") 
+  # for one station
+  chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+  pacf(chosen_station$PRCP, lag.max=50, main="ACF, station 1", na.action = na.pass)
     
-    
+  
+ 
     
     
 
