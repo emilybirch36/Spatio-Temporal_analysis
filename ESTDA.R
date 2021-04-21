@@ -184,6 +184,8 @@ head(co_prec,5)
  ########### 
  # AUTOCORRELATION
   
+# TEMPORAL AUTOCORRELATION  
+  
 # Temporal autocorrelation and partial autocorrelation function (PACF). 
 # Correlation with the time series itself, seperated by a temporal lag.
 # 1 is perfect positive autocorrelation
@@ -219,23 +221,41 @@ head(co_prec,5)
   STATION.chosen=c("US1COJF0326") 
   # for one station
   chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
-  pacf(chosen_station$PRCP, lag.max=50, main="ACF, station 1", na.action = na.pass)
+  pacf(chosen_station$PRCP, lag.max=50, main="ACF, station US1COJF0326", na.action = na.pass)
     
+  
+  
+  
+# SPATIAL AUTOCORRELATION  
+  
+# Spatial autocorrelation- quantifies the extent to which near observations of a process are more similar than distant observations in space
+# Global autocorrelation- moran's I
+# cannot take into account temporal variations in precip,
+# so Moran's I is calc based on the av precip for the whole study period
+  
+  
+  # measuring autocorrelation in point data 
+  # use a semivariogram- measures how the variance in the difference between observations of a process increases as the distance between measurement locations increases
+  
+  # using average temp of all time at each weather station
+  library(gstat)
+  co_prec %>%
+  group_by(STATION) %>% 
+  summarise_at(vars(-doy, -year, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -LONGITUDE, -LATITUDE, -SNWD, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> mean_av_precip_per_station
+  head(mean_av_precip_per_station, 10)
+  coords = list(projectMercator(co_prec[,3], co_prec[,4]))
+  plot(variogram(list(mean_av_precip_per_station$PRCP), locations=coords))
+      
+  # IN THE PLOT ABOVE- THE NUMBER OF COORDS DONT MATH MY CONDENSED AV PRECP TABLE
+  # to solve- find a way to bind/ pair up the long/lat with the weather staion
+  pairs(~LONGITUDE+LATITUDE+PRCP,data=co_prec)
+  
+  
+  # so have to make a variogram with all of the precip values   
+  coords = list(projectMercator(co_prec[,3], co_prec[,4]))
+  plot(variogram(list(co_prec$PRCP), locations=coords))
   
  
-    
-    
-
-     
-
-    
-    
-    
-    
-    
-    
-  
-  
   
   
   
