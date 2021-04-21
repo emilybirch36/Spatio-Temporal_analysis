@@ -61,11 +61,12 @@ hist(norm_prec)
 
 # the quantile-quantile QQ plot is used to examine how the distribution diverges from normality/ the theoretical normal distribution (red line)
 # QQ plot shows the distribution diverges at the tail in the upper quartile
-qqnorm(norm_prec)
-qqline(norm_prec, col="red")
+qqnorm(co_prec$PRCP)
+qqline(co_prec$PRCP, col="red")
 
-# qqnorm(co_prec$PRCP)
-# qqline(co_prec$PRCP, col="red")
+# plot normalised precip as QQ plot. doesn't work!
+qqnorm(log(co_prec$PRCP))
+qqline(log(co_prec$PRCP), col="red")
 
 
 
@@ -86,6 +87,7 @@ library(raster)
 require(maps)
 
 # find min and max long and lat for bounding box download
+# min and max are longc(W 105°18'05"--W 105°10'41"/lat, N 40°05'39"--N 39°57'51")
 max(co_prec$LATITUDE, na.rm = TRUE)
 max(co_prec$LONGITUDE, na.rm = TRUE)
 
@@ -93,26 +95,37 @@ min(co_prec$LONGITUDE, na.rm = TRUE)
 min(co_prec$LATITUDE, na.rm = TRUE)
 
 
+# LON1 =  -105.1805 ; LON2 = -105.1041
+# LAT1 = 40.0539 ; LAT2 = 39.5751
+
 # BACKGROUND MAP NEEDS FIXING/ADJUSTING- coordinates of backgorund map are slightly off centre (maximum x needs to be larger)
-year_2014 <- filter(co_prec, co_prec$year =="2014")
+year_2017 <- filter(co_prec, co_prec$year =="2017")
 # Change the column name:
-colnames(year_2014)[7]<-"precvalue"
+# colnames(year_2017)[7]<- "precvalue"
 # Make a proportional symbol of the latest data. Convert latitude and longitude to Mercator projection:
-year_2014[,3:4] <-projectMercator(year_2014$LATITUDE, year_2014$LONGITUDE)
+year_2017[,3:4] <-projectMercator(year_2017$LATITUDE, year_2017$LONGITUDE)
 # Download a map tile:
-#max lat upper left, min long lower 
-map <- openmap(c(105.1805,105.1041), c(40.0539,38.5751),type= 'esri-topo')
-
-autoplot.OpenStreetMap(map)+ geom_point (data= year_2014, aes(x=LONGITUDE,y=LATITUDE, color=precvalue, size=precvalue))+ ggtitle("Annual Average Temperature in Boulder, Colorado, 2014")
-
-# 39.2202,-105.6), c(40.2494,-105.2
-
-# c(W 105°18'05"--W 105°10'41"/N 40°05'39"--N 39°57'51")
+#max lat upper left, min long lower. longitude (E-W first), lat
+map <- openmap(c(40.0539, -105.1041), c(38.5751, -105.1805), minNumTiles=50, mergeTiles = TRUE, type= 'esri-topo')
+# check map plots the osm bounds background
+plot(map)
 
 
+# library(ggmap)
+# map <- get_map(location = c(lon = -105.1041, lat = 40.0539), zoom = "auto", maptype = c("terrain"), source = c("osm"))
+
+                                                                            
+# upper left max y max 40.0539, -105.1805 , lower right  38.5751, -105.1041
+autoplot.OpenStreetMap(map) + geom_point (data= year_2017, aes(x=LONGITUDE,y=LATITUDE, color=PRCP, size=PRCP))+ ggtitle("Annual Average Precip in Boulder, Colorado, 2017")
 
 
-# temporal characteristics
+
+
+
+
+
+
+# Temporal characteristics
 library(ggplot2)
 
 # make new column for month
@@ -120,17 +133,18 @@ co_prec$month = as.integer(strftime(as.POSIXct(paste(co_prec$DATE), format="%Y-%
 head(co_prec,5)
 
 
-# plot line graph- average temp across all stations per day, one line on graph for each year 2014-2017. Shows interannual vaiation.
-# plot average rainfall at each station. DOESNT WORK
+# Line graph showing the mean precip at each station from 2014-2017. Shows interannual vaiation and trend from 2014-2017.
   co_prec %>%
-    group_by(STATION) %>%
+    group_by(STATION) %>% 
+    group_by(year)
     summarise_at(vars(-doy, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> station_av_rain
   head(station_av_rain)
   ggplot(aes(x=year,y=PRCP),data=station_av_rain) + geom_line(stat='identity') + labs(y='Mean Daily Rainfall per Station')
 
 
   
-  # Multiple line plot of day of year against precipitation for 10 chosen stations. Shows annual/seasonal variation
+  
+  # Multiple line plot of day of year (corresponds to the month) against precipitation for 10 chosen stations. Shows annual/seasonal variation
   # Get station names for plot
   co_prec$STATION
   tail(co_prec$STATION, n = 10000)
@@ -143,44 +157,23 @@ head(co_prec,5)
   xyplot(PRCP ~ doy | STATION, xlab = "doy", type = "l",
          layout = c(5, 2),
          data=a,
-         main = "Precipitation in Boulder, Colorado")
+         main = "Daily Precipitation in Boulder, Colorado")
+  
+  
+
+  
+  
+  
+ # AUTOCORRELATION
   
   
   
 
   
- 
   
   
-  
-  
-# GRAPHS
-# make graph of average temps at stations
-
-# average precip at each station- use to show average. plot this on map showing av precp across region at each station?
-library(dplyr)
-
-co_prec %>%
-  group_by(STATION) %>%
-  summarise_at(vars(-doy, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> station_av_rain
-ggplot(aes(x=STATION,y=total_rain),data=station_av_rain) + geom_line(stat='identity') + labs(y='Mean Annual Rainfall')
 
 
-
-# get average precip at each station
-av_precip_each_station <- summarise(group_by(co_prec, STATION), Mean=mean(PRCP))
-typeof(av_precip_each_station)
-
-
-
-# SPACE. shows average precip on each date across all weather stations
-co_prec %>%
-  group_by(DATE) %>%
-  summarise_at(vars(-doy, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE)))
-
-
-# THEN JUST OVERLAY LINES ON LINE GRAPH- ONE LINE PER YEAR
-# WANT TO SEE WHAT THE WEATHER IS LIKE AT EACH STATION ON EACH DATE 
 
 
 
