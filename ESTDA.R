@@ -106,7 +106,7 @@ year_2017 <- filter(co_prec, co_prec$year =="2017")
 year_2017[,3:4] <-projectMercator(year_2017$LATITUDE, year_2017$LONGITUDE)
 # Download a map tile:
 #max lat upper left, min long lower. longitude (E-W first), lat
-map <- openmap(c(40.0539, -105.1041), c(38.5751, -105.1805), minNumTiles=50, mergeTiles = TRUE, type= 'esri-topo')
+map <- openmap(c(40.0539, -105.1805), c(38.5751, -105.1041), minNumTiles=50, mergeTiles = TRUE, type= 'esri-topo')
 # check map plots the osm bounds background
 plot(map)
 
@@ -162,22 +162,81 @@ head(co_prec,5)
   
 
   
+# FIX THIS !!  
+# pattern over space AND time
+# examine the changes in precip over the time period 2014-2017. One map per year. 
+# looking at the difference in precip because there is greater variation between the precip at differnt sites than the precip recorded in different years. 
+# blue on the map shows the years where precip has changed a lot
+  
+  # Calculate difference in precip from year to year (first year is zero as there is no preceding year)
+  precdiff <- cbind(0, co_prec[,6:ncol(co_prec)]-temp[,5:(ncol(co_prec)-1)])
+  newprec <- cbind(newtemp, unlist(precdiff))
+  colnames(newprec)[ncol(newprec)] <- "precdiff"
+  
+  autoplot.OpenStreetMap(map) + geom_point(data=newprec[year,], aes(x=LONGITUDE,y=LATITUDE, color=precdiff, size=log(ALTITUDE))) + scale_colour_gradient2(low="red", mid='white', high="blue") + facet_wrap(facets=~year)
   
   
+  
+
+  
+  
+  
+ ########### 
  # AUTOCORRELATION
   
+# Temporal autocorrelation and partial autocorrelation function (PACF). 
+# Correlation with the time series itself, seperated by a temporal lag.
+# 1 is perfect positive autocorrelation
+  
+  
+  # PLOT AUTOCORRELATION COEFFICIENT   NOT PLOTTING CORRECTLY! 
+  # r = 0.26, a PMCC value showing that precipitation on previous days is not strongly correlated.
+  library(gridExtra)
+  bLagged <- data.frame(t=co_prec$PRCP[2:co_prec$doy], t_minus_1=co_prec$PRCP[1:(co_prec$doy)-1]) 
+  p2 <- ggplot(bLagged, aes(x=t, y=t_minus_1)) + 
+    geom_point() + 
+    labs(y="t-1") +
+    geom_smooth(method="lm")+ # Add a regression line to the plot
+    annotate("text", 8.5, 10, label=paste("r =", round(cor(bLagged$t, bLagged$t_minus_1), 3))) # Calculate PMCC
+  # plot
+  p2
+  
+  
+# more useful for precip:
+# PLOT ACF
+  acf(co_prec$PRCP, na.action = na.pass) 
   
   
 
+  # Line graph showing the mean precip at each station from 2014-2017. Shows interannual vaiation and trend from 2014-2017.
+  co_prec %>%
+  group_by(STATION) %>% 
+  group_by(year)
+  summarise_at(vars(-doy, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> station_av_rain
+  acf(station_av_rain, na.action = na.pass)
+      
+
+    
+    
+    
+    
+
+     
+
+    
+    
+    
+    
+    
+    
   
   
   
-
-
-
-
-
-
+  
+  
+ 
+  
+  
 
 
 
