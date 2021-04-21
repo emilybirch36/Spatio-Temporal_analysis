@@ -189,7 +189,7 @@ head(co_prec,5)
 # 1 is perfect positive autocorrelation
   
   
-  # PLOT AUTOCORRELATION COEFFICIENT   NOT PLOTTING CORRECTLY! 
+  # PLOT AUTOCORRELATION COEFFICIENT   NOT PLOTTING CORRECTLY! - do for month instead?
   # r = 0.26, a PMCC value showing that precipitation on previous days is not strongly correlated.
   library(gridExtra)
   bLagged <- data.frame(t=co_prec$PRCP[2:co_prec$doy], t_minus_1=co_prec$PRCP[1:(co_prec$doy)-1]) 
@@ -207,13 +207,12 @@ head(co_prec,5)
   acf(co_prec$PRCP, na.action = na.pass) 
   
   
-
-  # Line graph showing the mean precip at each station from 2014-2017. Shows interannual vaiation and trend from 2014-2017.
+# ACF plot shows average precip....
   co_prec %>%
   group_by(STATION) %>% 
   group_by(year)
   summarise_at(vars(-doy, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> station_av_rain
-  acf(station_av_rain, na.action = na.pass)
+  acf(station_av_rain$PRCP, na.action = na.pass)
       
 
     
