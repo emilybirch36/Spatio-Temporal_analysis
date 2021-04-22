@@ -39,10 +39,13 @@ year_2016 <- data.frame(filter(co_prec, year =="2016"))
 year_2017 <- data.frame(filter(co_prec, year =="2017"))
 
 
-
+# look at mean and SD, want mean 0 and SD 1 for normal distribution
 # get mean daily precip for Boulder Colarado. is 0.067 inches
-mean(co_prec$PRCP, na.rm = TRUE) 
 mean_daily_prec <- mean(co_prec$PRCP, na.rm = TRUE) 
+mean_daily_prec
+
+# get SD. 0.186
+sd(co_prec$PRCP, na.rm = TRUE)
 
 # max precip in Boulder Colarado between 2014-2017 is 3.29 inches
 max(co_prec$PRCP, na.rm = TRUE) 
@@ -53,10 +56,60 @@ max(co_prec$PRCP, na.rm = TRUE)
 hist(co_prec$PRCP)
 abline(v=mean_daily_precip, col="red")
 
+# OR
+ggplot(data=co_prec, aes(PRCP)) + geom_histogram(breaks=seq(0,300,5))
+
 
 # normalise precip because the distribution is skewed 
-norm_prec <- log(co_prec$PRCP)
-hist(norm_prec)
+
+# standardise column to have mean of 0 and SD of 1 
+# prcp_norm <- (co_prec$PRCP - mean(co_prec$PRCP)) / sd(co_prec$PRCP)
+#  head(prcp_norm, 10)
+# hist(prcp_norm$PRCP) ???
+
+
+# normalise, but check the observation is constant first before transformation. 
+# cant normalise PRCP because some PRCP values are 0 so this is not divisible ?
+
+normalise <- function(x) {
+  if(min(x, na.rm=TRUE)!=max(x, na.rm=TRUE)) {
+    res <- ((x - min(x, na.rm=TRUE)) / (max(x, na.rm=TRUE) - min(x, na.rm=TRUE)))
+  } else {
+    res <- 0.5
+  }
+  res
+}
+
+
+# use normalise func to normalise precip and make a new column
+co_prec$PRCP_norm <-normalise(co_prec$PRCP)
+head(co_prec, 10)
+
+par(mfrow=c(1,2))
+prcp_norm_hist <- hist(co_prec$PRCP_norm)
+prcp_hist <- hist(co_prec$PRCP), MF
+arrange(prcp_norm_hist, prcp_hist)
+
+
+library(gridExtra)
+p1 <- ggplot(data=co_prec, aes(PRCP)) + geom_histogram(breaks=seq(0,300,5), na.rm = TRUE)
+p2 <- ggplot(data=co_prec, aes(PRCP_norm)) + geom_histogram(breaks=seq(0,300,5), na.rm = TRUE)
+grid.arrange(p1, p2)
+
+mean(co_prec$PRCP_norm, na.rm = TRUE) 
+norm_mean_daily_prec <- mean(co_prec$PRCP_norm, na.rm = TRUE) 
+abline(v=norm_mean_daily_precip, col="red")
+hist(co_prec$PRCP_norm)
+
+
+
+# ? co_prec$norm_PRCP <- data.frame(log(co_prec$PRCP))
+
+
+
+
+# look at elevation range
+hist(co_prec$ELEVATION)
 
 
 # the quantile-quantile QQ plot is used to examine how the distribution diverges from normality/ the theoretical normal distribution (red line)
@@ -65,8 +118,8 @@ qqnorm(co_prec$PRCP)
 qqline(co_prec$PRCP, col="red")
 
 # plot normalised precip as QQ plot. doesn't work!
-qqnorm(log(co_prec$PRCP))
-qqline(log(co_prec$PRCP), col="red")
+qqnorm(co_prec$PRCP_norm)
+qqline(co_prec$PRCP_norm, col="red")
 
 
 
@@ -126,7 +179,6 @@ autoplot.OpenStreetMap(map) + geom_point (data= year_2017, aes(x=LONGITUDE,y=LAT
 
 
 # Temporal characteristics
-library(ggplot2)
 
 # make new column for month
 co_prec$month = as.integer(strftime(as.POSIXct(paste(co_prec$DATE), format="%Y-%m-%d"), format = "%m"))
@@ -134,32 +186,86 @@ head(co_prec,5)
 
 
 # Line graph showing the mean precip at each station from 2014-2017. Shows interannual vaiation and trend from 2014-2017.
+co_prec %>%
+  group_by(STATION) %>% 
+  group_by(year) 
+  summarise_at(vars(-doy, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> station_av_rain
+  head(station_av_rain, 10) 
+  plot(station_av_rain$PRCP, main = "Mean daily precip in Boulder, Colorado
+       from 2013-2017", xlab = "Year", ylab = "Precipitation (inches)", type="l", xaxt="n",
+       axis(side = 1, at =c(2013: 2017), labels = (2013: 2017)))
+             
+       # cant have axis with x as station_av_rain$year   
+
+
+  ##############
+  # could try this 
+  library(tidyverse)
+  library(reshape2)
+  library(cowplot)
+  library(magrittr)
+  
+  # make nice plot colours
+  theme_set(theme_bw())
+  
+  get_colour <- function(co_prec){
+    colfunc <- colorRampPalette(c("blue", "red"))
+    my_colour <- colfunc(12)
+    
+    df %>%
+      group_by(co_prec$doy) %>%
+      summarise(month_mean = mean(co_prec$PRCP)) %>%
+      arrange(month_mean) %>%
+      pull(co_prec$doy) %>%
+      as.integer() -> my_order
+    
+    my_colour[match(1:12, my_order)]
+  }
+  
+  # monthly mean precip
   co_prec %>%
     group_by(STATION) %>% 
-    group_by(year)
-    summarise_at(vars(-doy, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> station_av_rain
-  head(station_av_rain)
-  ggplot(aes(x=year,y=PRCP),data=station_av_rain) + geom_line(stat='identity') + labs(y='Mean Daily Rainfall per Station')
-
-
+    group_by(year) 
+  summarise_at(vars(-doy, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> station_av_rain
+  b <- ggplot(station_av_rain, aes(co_prec$doy, co_prec$PRCP, colour = co_prec$doy)) +
+    geom_point(size = 0.5) +
+    geom_smooth(method = "loess") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          legend.position = "none") +
+    labs(title = "Monthly mean minimum temperature", subtitle = "Brisbane Regional Office: January 1910 - March 1986") +
+    facet_wrap(~doy) +
+    NULL
   
+  plot(b)
+  
+  ############
+  
+  
+  
+  
+
   
   # Multiple line plot of day of year (corresponds to the month) against precipitation for 10 chosen stations. Shows annual/seasonal variation
   # Get station names for plot
+  library(lattice)
+  library(ggplot2)
   co_prec$STATION
   tail(co_prec$STATION, n = 10000)
+  
+  # reset graphics so plot loads 
+  dev.off()
   # note that there are large peaks in rainfall between the 100-150th day of the year. 
-  library(lattice)
-  STATION.chosen=c("US1COJF0326", "US1COGL0015","US1COJF0327","US1COGL0010", "US1COJF0290", "US1COBO0018","US1COBO0014","US1COBO0019","US1COBO0022","US1COBO0304","US1COBO0306")
+  co_prec$STATION.chosen=c("US1COJF0326", "US1COGL0015","US1COJF0327","US1COGL0010", "US1COJF0290", "US1COBO0018","US1COBO0014","US1COBO0019","US1COBO0022","US1COBO0304","US1COBO0306")
   #Create a variable containing just the selected stations
   a <- co_prec[co_prec$STATION %in% STATION.chosen,]
-  
   xyplot(PRCP ~ doy | STATION, xlab = "doy", type = "l",
          layout = c(5, 2),
          data=a,
-         main = "Daily Precipitation in Boulder, Colorado")
+         main = "Daily Precipitation in Boulder Colorado")
   
-  
+
 
   
 # FIX THIS !!  
@@ -206,26 +312,104 @@ head(co_prec,5)
   
 # more useful for precip:
 # PLOT ACF
-  acf(co_prec$PRCP, na.action = na.pass) 
+
+  acf(co_prec$PRCP, na.action = na.pass, main = "ACF plot of precipitation") 
   
   
-# ACF plot shows average annual precipitation
+  head(co_prec, 10)
+  
+# ACF plot shows average monthly precipitation. whole of Boulder, Colorado
   co_prec %>%
   group_by(STATION) %>% 
-  group_by(year)
-  summarise_at(vars(-doy, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> station_av_rain
-  acf(station_av_rain$PRCP, na.action = na.pass)
+  group_by(month) 
+  summarise_at(vars(-year, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) <- station_av_rain
+  acf(station_av_rain$PRCP, na.action = na.pass, main = "ACF plot of average monthly precipitation")
       
 
-# PACF. partial autocorrelation function for one of the weather stations
+  # ACF for individual stations up to lag 50
   STATION.chosen=c("US1COJF0326") 
   # for one station
   chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
-  pacf(chosen_station$PRCP, lag.max=50, main="ACF, station US1COJF0326", na.action = na.pass)
+  acf(chosen_station$PRCP, lag.max=50, main="ACF, station US1COJF0326", na.action = na.pass)
+  
+  STATION.chosen=c("US1COGL0015") 
+  # for one station
+  chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+  acf(chosen_station$PRCP, lag.max=50, main="ACF, station US1COGL0015", na.action = na.pass)
+  
+  
+  STATION.chosen=c("US1COJF0327") 
+  # for one station
+  chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+  acf(chosen_station$PRCP, lag.max=50, main="ACF, station US1COJF0327", na.action = na.pass)
+  
+  
+  STATION.chosen=c("US1COGL0010") 
+  # for one station
+  chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+  acf(chosen_station$PRCP, lag.max=50, main="ACF, station US1COGL0010", na.action = na.pass)
+  
+  
+  
+  STATION.chosen=c("US1COJF0290") 
+  # for one station
+  chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+  acf(chosen_station$PRCP, lag.max=50, main="ACF, station US1COJF0290", na.action = na.pass)
+  
+  
+  STATION.chosen=c("US1COBO0014") 
+  # for one station
+  chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+  acf(chosen_station$PRCP, lag.max=50, main="ACF, station US1COBO0014", na.action = na.pass)
+  
+  
+  
+  
+  # PACF
+  
+  
+# PACF. partial autocorrelation function for one of the weather stations up to lag 50.
+  STATION.chosen=c("US1COJF0326") 
+  # for one station
+  chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+  pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COJF0326", na.action = na.pass)
     
   
-  
-  
+ STATION.chosen=c("US1COGL0015") 
+ # for one station
+ chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+  pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COGL0015", na.action = na.pass)
+ 
+ 
+ STATION.chosen=c("US1COJF0327") 
+ # for one station
+ chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+ pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COJF0327", na.action = na.pass)
+ 
+ 
+ STATION.chosen=c("US1COGL0010") 
+ # for one station
+ chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+ pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COGL0010", na.action = na.pass)
+ 
+
+ 
+  STATION.chosen=c("US1COJF0290") 
+ # for one station
+ chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+ pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COJF0290", na.action = na.pass)
+ 
+ 
+ STATION.chosen=c("US1COBO0014") 
+ # for one station
+ chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COBO0014", na.action = na.pass)
+ 
+
+
+
+
+
 # SPATIAL AUTOCORRELATION  
   
 # Spatial autocorrelation- quantifies the extent to which near observations of a process are more similar than distant observations in space
@@ -251,7 +435,7 @@ head(co_prec,5)
   pairs(~LONGITUDE+LATITUDE+PRCP,data=co_prec)
   
   
-  # so have to make a variogram with all of the precip values   
+  # so have to make a variogram with all of the precip values - too slow  
   coords = list(projectMercator(co_prec[,3], co_prec[,4]))
   plot(variogram(list(co_prec$PRCP), locations=coords))
   
@@ -262,8 +446,6 @@ head(co_prec,5)
  
   
   
-
-
 
 
 
