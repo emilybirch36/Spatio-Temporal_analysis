@@ -14,7 +14,12 @@ getwd()
 
 # readRDS restores a single R object called co_prec
 co_prec = readRDS("~/Documents/UCL/T2_spatio_temporal/rainfall/boulder_prcp.rds")
+
+# reassign NA values
+# na.strings = 999.99)
+
 head(co_prec, 10)
+
 
 
 # make new column of day of year
@@ -23,6 +28,7 @@ co_prec$doy = as.integer(strftime(as.POSIXct(paste(co_prec$DATE), format="%Y-%m-
 # make new column for year 
 co_prec$year = as.integer(strftime(as.POSIXct(paste(co_prec$DATE), format="%Y-%m-%d"), format = "%Y"))
 co_prec
+
 
 # assign a variable for each year
 year_2014 <- filter(co_prec, co_prec$year =="2014")
@@ -49,6 +55,10 @@ sd(co_prec$PRCP, na.rm = TRUE)
 
 # max precip in Boulder Colarado between 2014-2017 is 3.29 inches
 max(co_prec$PRCP, na.rm = TRUE) 
+
+
+# summary stats
+summary(co_prec$PRCP)
 
 
 
@@ -197,55 +207,7 @@ co_prec %>%
              
        # cant have axis with x as station_av_rain$year   
 
-
-  ##############
-  # could try this 
-  library(tidyverse)
-  library(reshape2)
-  library(cowplot)
-  library(magrittr)
   
-  # make nice plot colours
-  theme_set(theme_bw())
-  
-  get_colour <- function(co_prec){
-    colfunc <- colorRampPalette(c("blue", "red"))
-    my_colour <- colfunc(12)
-    
-    df %>%
-      group_by(co_prec$doy) %>%
-      summarise(month_mean = mean(co_prec$PRCP)) %>%
-      arrange(month_mean) %>%
-      pull(co_prec$doy) %>%
-      as.integer() -> my_order
-    
-    my_colour[match(1:12, my_order)]
-  }
-  
-  # monthly mean precip
-  co_prec %>%
-    group_by(STATION) %>% 
-    group_by(year) 
-  summarise_at(vars(-doy, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> station_av_rain
-  b <- ggplot(station_av_rain, aes(co_prec$doy, co_prec$PRCP, colour = co_prec$doy)) +
-    geom_point(size = 0.5) +
-    geom_smooth(method = "loess") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-          axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          legend.position = "none") +
-    labs(title = "Monthly mean minimum temperature", subtitle = "Brisbane Regional Office: January 1910 - March 1986") +
-    facet_wrap(~doy) +
-    NULL
-  
-  plot(b)
-  
-  ############
-  
-  
-  
-  
-
   
   # Multiple line plot of day of year (corresponds to the month) against precipitation for 10 chosen stations. Shows annual/seasonal variation
   # Get station names for plot
@@ -267,6 +229,59 @@ co_prec %>%
   
 
 
+  
+
+  # total monthly precip in each year 
+  daily_precip_per_month <- co_prec %>%
+    group_by(month, year) %>%
+    order_by(year) %>%
+    summarise(total_precip = sum(PRCP, na.rm = TRUE), .groups = 'keep')
+  head(daily_precip_per_month, 10)
+  
+  
+  daily_precip_per_month %>%
+    ggplot(aes(x = month, y = total_precip)) +
+    geom_bar(stat = "identity", fill = "lightblue") +
+    facet_wrap(~ year, ncol = 3) +
+    labs(title = "Total Monthly Precipitation, 
+         Boulder, Colorado",
+         subtitle = "(per year: 2013-2017)",
+         y = "Daily precip (inches)",
+         x = "Month") + theme_bw(base_size = 15) 
+  
+  
+  
+  
+ # plot similar but for mean monthly precip 
+ mean_monthly_prcp <-  co_prec %>%
+ group_by(year, month) %>%
+   arrange_by(year)
+   summarise(mean_precip = mean(co_prec$PRCP, na.rm = TRUE), .groups = 'keep')
+  head(mean_monthly_prcp, 10)
+ 
+ 
+ mean_monthly_prcp %>%
+   ggplot(aes(x = month, y = mean_precip)) +
+   geom_bar(stat = "identity", fill = "darkblue") +
+   facet_wrap(~ year, ncol = 3) +
+   labs(title = "Mean monthly Precipitation, 
+         Boulder, Colorado",
+        subtitle = "(per year: 2013-2017)",
+        y = "Mean daily precip (inches)",
+        x = "Month") + theme_bw(base_size = 15) 
+  
+ 
+ # plot of mean daily precip
+ plot(mean_monthly_prcp$mean_precip, main = "Mean daily precip in Boulder, Colorado
+      from 2013-2017", xlab = "Year 2013-2017", ylab = "Precipitation (inches)", type="l", xaxt="n")
+      
+      
+
+ 
+  
+
+  
+  
   
 # FIX THIS !!  
 # pattern over space AND time
@@ -417,6 +432,15 @@ pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COBO0014", na.actio
 # cannot take into account temporal variations in precip,
 # so Moran's I is calc based on the av precip for the whole study period
   
+
+ 
+result <- aggregate(PRCP~STATION+month, mean, data=co_prec)
+data.frame(year=unique(substr(co_prec$DATE, 1, 4)), result)
+
+
+ 
+
+
   
   # measuring autocorrelation in point data 
   # use a semivariogram- measures how the variance in the difference between observations of a process increases as the distance between measurement locations increases
