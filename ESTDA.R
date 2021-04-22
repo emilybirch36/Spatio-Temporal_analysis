@@ -481,4 +481,60 @@ pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COBO0014", na.actio
 
 
  
+ 
+ 
+ 
+ 
+ # Preprocessing
+ # - remove NA values- impute these with the mean
+ # - scale the data. precip data is already standardised- attributes have a mean of 0 and sd of 1
+ 
+ 
+ # check if PRCP has been standardised already 
+ # check mean. 0.06
+ mean_daily_prec <- mean(co_prec$PRCP, na.rm = TRUE) 
+ mean_daily_prec
+ 
+ # get SD. 0.186
+ sd(co_prec$PRCP, na.rm = TRUE)
+ 
+ 
+ # scale. divides wach value by its standard deviation
+ library(caret)
+ scale_PRCP <- preProcess(co_prec[7], method=c("scale"))
+ print(scale_PRCP)
+ 
+ 
+ # remove or impute NAs with the column mean- ML cant handle NA values 
+
+#  co_prec$PRCP[is.na(co_prec$PRCP)] <- round(mean(co_prec$PRCP, na.rm = TRUE))
+#  head(co_prec$PRCP, 50)
+ 
+ # loop over for all columns
+#  for(i in 1:ncol(data)){
+ #  data[is.na(data[,i]), i] <- mean(data[,i], na.rm = TRUE)
+# }
+ 
+ library(imputeTS)
+ cleaned_precip_data <- na_mean(co_prec)
+ 
+ 
+ # remove unecessary columns 
+ cleaned_precip_data$WT01 <- NULL
+ cleaned_precip_data$WT03 <- NULL
+ cleaned_precip_data$WT04 <- NULL
+ cleaned_precip_data$WT05 <- NULL
+ cleaned_precip_data$WT06 <- NULL
+ cleaned_precip_data$WT11 <- NULL
+ cleaned_precip_data$year <- NULL
+ cleaned_precip_data$month <- NULL
+ cleaned_precip_data$NAME <- NULL
+ 
+ 
+ 
+ # check columns have been removed 
+ head(cleaned_precip_data, 10)
+ 
+ 
+ 
 
