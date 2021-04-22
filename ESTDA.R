@@ -315,7 +315,7 @@ co_prec %>%
   # PLOT AUTOCORRELATION COEFFICIENT   NOT PLOTTING CORRECTLY! - do for month instead?
   # r = 0.26, a PMCC value showing that precipitation on previous days is not strongly correlated.
   library(gridExtra)
-  bLagged <- data.frame(t=co_prec$PRCP[2:co_prec$doy], t_minus_1=co_prec$PRCP[1:(co_prec$doy)-1]) 
+  bLagged <- data.frame(t=mean_monthly_prcp$mean_precip[2:mean_monthly_prcp$month], t_minus_1=mean_monthly_prcp$mean_precip[1:(mean_monthly_prcp$month)-1]) 
   p2 <- ggplot(bLagged, aes(x=t, y=t_minus_1)) + 
     geom_point() + 
     labs(y="t-1") +
@@ -324,22 +324,13 @@ co_prec %>%
   # plot
   p2
   
-  
-# more useful for precip:
-# PLOT ACF
 
-  acf(co_prec$PRCP, na.action = na.pass, main = "ACF plot of precipitation") 
   
+
+# ACF
+ acf(mean_monthly_prcp$mean_precip, na.action = na.pass, main = "ACF plot of average monthly precipitation") 
   
-  head(co_prec, 10)
-  
-# ACF plot shows average monthly precipitation. whole of Boulder, Colorado
-  co_prec %>%
-  group_by(STATION) %>% 
-  group_by(month) 
-  summarise_at(vars(-year, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -SNWD, -LATITUDE, -LONGITUDE, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) <- station_av_rain
-  acf(station_av_rain$PRCP, na.action = na.pass, main = "ACF plot of average monthly precipitation")
-      
+
 
   # ACF for individual stations up to lag 50
   STATION.chosen=c("US1COJF0326") 
@@ -381,6 +372,8 @@ co_prec %>%
   
   
   # PACF
+  pacf(mean_monthly_prcp$mean_precip, na.action = na.pass, main = "ACF plot of average monthly precipitation") 
+  
   
   
 # PACF. partial autocorrelation function for one of the weather stations up to lag 50.
@@ -428,59 +421,64 @@ pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COBO0014", na.actio
 # SPATIAL AUTOCORRELATION  
   
 # Spatial autocorrelation- quantifies the extent to which near observations of a process are more similar than distant observations in space
-# Global autocorrelation- moran's I
-# cannot take into account temporal variations in precip,
-# so Moran's I is calc based on the av precip for the whole study period
-  
 
- 
-result <- aggregate(PRCP~STATION+month, mean, data=co_prec)
-data.frame(year=unique(substr(co_prec$DATE, 1, 4)), result)
-
-
- 
-
-
-  
   # measuring autocorrelation in point data 
   # use a semivariogram- measures how the variance in the difference between observations of a process increases as the distance between measurement locations increases
-  
-  # using average temp of all time at each weather station
+
+# the four panes show the semivariance centred on 0, 45, 90 and 135°
+# only need to look at angles up to 135 bc the remianing angles ar eopposite and identical 
+# the rate of increase in semivariance is different in different directions. This indicates anisotropy, and has implications for modelling
+
+
+  # variogram plot for precip
   library(gstat)
-  co_prec %>%
-  group_by(STATION) %>% 
-  summarise_at(vars(-doy, -year, -DATE, -month, -WT01, -WT03, -WT04, -WT05, -WT06, -WT11, -TAVG, -SNOW, -LONGITUDE, -LATITUDE, -SNWD, -ELEVATION, -NAME), funs(mean(., na.rm=TRUE))) -> mean_av_precip_per_station
-  head(mean_av_precip_per_station, 10)
   coords = list(projectMercator(co_prec[,3], co_prec[,4]))
-  plot(variogram(list(mean_av_precip_per_station$PRCP), locations=coords))
-      
-  # IN THE PLOT ABOVE- THE NUMBER OF COORDS DONT MATH MY CONDENSED AV PRECP TABLE
-  # to solve- find a way to bind/ pair up the long/lat with the weather staion
-  pairs(~LONGITUDE+LATITUDE+PRCP,data=co_prec)
   
-  
-  # so have to make a variogram with all of the precip values - too slow  
-  coords = list(projectMercator(co_prec[,3], co_prec[,4]))
   plot(variogram(list(co_prec$PRCP), locations=coords))
   
+  
+  library(geoR)
+  # so have to make a variogram with all of the precip values - doesnt load points 
+  coords = list(projectMercator(co_prec[,3], co_prec[,4]))
+  precip = list(mean_monthly_prcp$mean_precip)
+  plot(variogram(precip, locations=coords))
+  
+  
+  # look at summary of distances between stations
+  library(geoR)
+  dists <- dist(co_prec[,3:4])
+  
+ breaks = seq(0, 1.5, l =11)
+ variog
+  
+
+
+
+
+
+
+# Spatio-Temporal Autocorrelation
+# use space-time semi-variogram data to examine the point data 
+
+ # store the data in a spacio-temporal datafreame (STDF) using the space-time package
+
  
-  
-  
-  
+ library(spacetime)
+ pts <- SpatialPoints(co_prec[,3:4], 
+                      proj4string=CRS("+init=epsg:4326 +proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"))
+ # time <- co_prec$DATE
+ time <- seq(as.Date("2013-01-01"), length = 52, by = "year")
+ precip_matrix<-data.matrix(co_prec[7])
+ # store the data in a spacio-temporal dataframe 
+ stfdf <- STFDF(pts, time, data.frame(as.vector(t(precip_matrix))))
+ names(stfdf@data) <- "Precipitation"
+
+# calculate the semivariogram
+ STVar <- variogram(Precipitation~1, stfdf, width=100, cutoff=1000,tlags=0:10) 
+
+# plot
+ plot(STVar, qireframe=T)
+
+
  
-  
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
 
