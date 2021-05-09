@@ -288,12 +288,7 @@ data.frame(seed=i,
 res = do.call(rbind,res)
 head(res)
 
-# RMSE is 0.0373
-
-
-# compare predicted outcome and true outcome
-confusionMatrix(pred_values, as.factor(actual_values))
-
+# RMSE for test is 0.0373
 
 
 
