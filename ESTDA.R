@@ -1,6 +1,7 @@
 
-# ESTDA- Boulder colarado daily precipitation data
+# ESTDA- daily precipitation data for Boulder,Colarado
 
+# CHANGE FILE PATH TO RUN FILE
 # set working directory
 setwd("~/Documents/UCL/T2_spatio_temporal/rainfall")
 
@@ -70,7 +71,7 @@ abline(v=mean_daily_precip, col="red")
 ggplot(data=co_prec, aes(PRCP)) + geom_histogram(breaks=seq(0,300,5))
 
 
-# normalise precip because the distribution is skewed 
+# DONT NEED TO normalise precip (even though distribution is skewed) for rf
 
 # standardise column to have mean of 0 and SD of 1 
 # prcp_norm <- (co_prec$PRCP - mean(co_prec$PRCP)) / sd(co_prec$PRCP)
@@ -81,24 +82,23 @@ ggplot(data=co_prec, aes(PRCP)) + geom_histogram(breaks=seq(0,300,5))
 # normalise, but check the observation is constant first before transformation. 
 # cant normalise PRCP because some PRCP values are 0 so this is not divisible ?
 
-normalise <- function(x) {
-  if(min(x, na.rm=TRUE)!=max(x, na.rm=TRUE)) {
-    res <- ((x - min(x, na.rm=TRUE)) / (max(x, na.rm=TRUE) - min(x, na.rm=TRUE)))
-  } else {
-    res <- 0.5
-  }
-  res
-}
-
+# normalise <- function(x) {
+#  if(min(x, na.rm=TRUE)!=max(x, na.rm=TRUE)) {
+#    res <- ((x - min(x, na.rm=TRUE)) / (max(x, na.rm=TRUE) - min(x, na.rm=TRUE)))
+#  } else {
+#    res <- 0.5
+#  }
+#  res
+#}
 
 # use normalise func to normalise precip and make a new column
-co_prec$PRCP_norm <-normalise(co_prec$PRCP)
-head(co_prec, 10)
+# co_prec$PRCP_norm <-normalise(co_prec$PRCP)
+# head(co_prec, 10)
 
-par(mfrow=c(1,2))
-prcp_norm_hist <- hist(co_prec$PRCP_norm)
-prcp_hist <- hist(co_prec$PRCP), MF
-arrange(prcp_norm_hist, prcp_hist)
+# par(mfrow=c(1,2))
+# prcp_norm_hist <- hist(co_prec$PRCP_norm)
+# prcp_hist <- hist(co_prec$PRCP), MF
+# arrange(prcp_norm_hist, prcp_hist)
 
 
 library(gridExtra)
@@ -110,11 +110,6 @@ mean(co_prec$PRCP_norm, na.rm = TRUE)
 norm_mean_daily_prec <- mean(co_prec$PRCP_norm, na.rm = TRUE) 
 abline(v=norm_mean_daily_precip, col="red")
 hist(co_prec$PRCP_norm)
-
-
-
-# ? co_prec$norm_PRCP <- data.frame(log(co_prec$PRCP))
-
 
 
 
@@ -134,8 +129,7 @@ qqline(co_prec$PRCP_norm, col="red")
 
 
 
-
-# Look at how the data vary in SPACE and TIME
+########   Look at how the data vary in SPACE and TIME    #########
 
 # Pairwise scatterplot to look at relationship between precip, latitude, longitude and elevation 
 # relationships dont show much, no vast diff in lat, long at Boulder, Colorado 
@@ -158,6 +152,10 @@ min(co_prec$LONGITUDE, na.rm = TRUE)
 min(co_prec$LATITUDE, na.rm = TRUE)
 
 
+# 40°05'39, -105°18'05, 
+
+
+
 # LON1 =  -105.1805 ; LON2 = -105.1041
 # LAT1 = 40.0539 ; LAT2 = 39.5751
 
@@ -169,24 +167,45 @@ year_2017 <- filter(co_prec, co_prec$year =="2017")
 year_2017[,3:4] <-projectMercator(year_2017$LATITUDE, year_2017$LONGITUDE)
 # Download a map tile:
 #max lat upper left, min long lower. longitude (E-W first), lat
-map <- openmap(c(40.0539, -105.1805), c(38.5751, -105.1041), minNumTiles=50, mergeTiles = TRUE, type= 'esri-topo')
+baseUrl <- "https://api.mapbox.com/styles/v1/mapbox/dark-v9/tiles/256/{z}/{x}/{y}"
+map <- openmap(c(40.0539, -106.1805), c(38.5751, -105.1041), minNumTiles=3, mergeTiles = TRUE, type= 'esri-topo')
+# 40.0539, -105.1805), c(38.5751, -105.1041). this plots really narrow which means range is too small
+autoplot.OpenStreetMap(map)
+
+# bbox = min Longitude , min Latitude , max Longitude , max Latitude 
 # check map plots the osm bounds background
 plot(map)
 
 
 # library(ggmap)
-# map <- get_map(location = c(lon = -105.1041, lat = 40.0539), zoom = "auto", maptype = c("terrain"), source = c("osm"))
+mapp <- get_map(location = c(lon = -105.1041, lat = 40.0539), zoom = "auto", maptype = c("terrain"), source = c("osm"))
 
                                                                             
 # upper left max y max 40.0539, -105.1805 , lower right  38.5751, -105.1041
+
+
+########
+map <- openmap(c(40.0539, -106.1805), c(38.5751, -105.1041), minNumTiles=3, mergeTiles = TRUE, type= 'esri-topo')
+test2=openproj(test2, projection = "+proj=longlat") 
 autoplot.OpenStreetMap(map) + geom_point (data= year_2017, aes(x=LONGITUDE,y=LATITUDE, color=PRCP, size=PRCP))+ ggtitle("Annual Average Precip in Boulder, Colorado, 2017")
 
+###########
+
+
+# Load library
+library(maps)
+
+# Check all available geospatial objects:
+# help(package='maps')
+
+# Map of the world:
+map('US',col="grey", fill=TRUE, bg="white", lwd=0.05, mar=rep(0,4),border=0, ylim=c(-80,80) )
 
 
 
 
 
-
+####### TEMPORAL #######
 
 # Temporal characteristics
 
@@ -216,6 +235,7 @@ co_prec %>%
   co_prec$STATION
   tail(co_prec$STATION, n = 10000)
   
+  
   # reset graphics so plot loads 
   dev.off()
   # note that there are large peaks in rainfall between the 100-150th day of the year. 
@@ -228,8 +248,6 @@ co_prec %>%
          main = "Daily Precipitation in Boulder Colorado")
   
 
-
-  
 
   # total monthly precip in each year 
   daily_precip_per_month <- co_prec %>%
@@ -277,11 +295,6 @@ co_prec %>%
       
       
 
- 
-  
-
-  
-  
   
 # FIX THIS !!  
 # pattern over space AND time
@@ -303,7 +316,7 @@ co_prec %>%
   
   
  ########### 
- # AUTOCORRELATION
+# AUTOCORRELATION
   
 # TEMPORAL AUTOCORRELATION  
   
@@ -312,18 +325,18 @@ co_prec %>%
 # 1 is perfect positive autocorrelation
   
   
-  # PLOT AUTOCORRELATION COEFFICIENT   NOT PLOTTING CORRECTLY! - do for month instead?
-  # r = 0.26, a PMCC value showing that precipitation on previous days is not strongly correlated.
-  library(gridExtra)
-  bLagged <- data.frame(t=mean_monthly_prcp$mean_precip[2:mean_monthly_prcp$month], t_minus_1=mean_monthly_prcp$mean_precip[1:(mean_monthly_prcp$month)-1]) 
-  p2 <- ggplot(bLagged, aes(x=t, y=t_minus_1)) + 
-    geom_point() + 
-    labs(y="t-1") +
-    geom_smooth(method="lm")+ # Add a regression line to the plot
-    annotate("text", 8.5, 10, label=paste("r =", round(cor(bLagged$t, bLagged$t_minus_1), 3))) # Calculate PMCC
-  # plot
-  p2
-  
+# PLOT AUTOCORRELATION COEFFICIENT   NOT PLOTTING CORRECTLY! - do for month instead?
+# r = 0.26, a PMCC value showing that precipitation on previous days is not strongly correlated.
+library(gridExtra)
+bLagged <- data.frame(t=mean_monthly_prcp$mean_precip[2:mean_monthly_prcp$month], t_minus_1=mean_monthly_prcp$mean_precip[1:(mean_monthly_prcp$month)-1]) 
+p2 <- ggplot(bLagged, aes(x=t, y=t_minus_1)) + 
+  geom_point() + 
+  labs(y="t-1") +
+  geom_smooth(method="lm")+ # Add a regression line to the plot
+  annotate("text", 8.5, 10, label=paste("r =", round(cor(bLagged$t, bLagged$t_minus_1), 3))) # Calculate PMCC
+# plot
+p2
+
 
   
 
@@ -372,7 +385,7 @@ co_prec %>%
   
   
   # PACF
-  pacf(mean_monthly_prcp$mean_precip, na.action = na.pass, main = "ACF plot of average monthly precipitation") 
+  pacf(mean_monthly_prcp$mean_precip, na.action = na.pass, main = "PACF plot of average monthly precipitation") 
   
   
   
@@ -403,16 +416,16 @@ co_prec %>%
 
  
   STATION.chosen=c("US1COJF0290") 
- # for one station
- chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
- pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COJF0290", na.action = na.pass)
- 
- 
- STATION.chosen=c("US1COBO0014") 
- # for one station
- chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
-pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COBO0014", na.action = na.pass)
- 
+  # for one station
+  chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+  pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COJF0290", na.action = na.pass)
+  
+   
+  STATION.chosen=c("US1COBO0014") 
+  # for one station
+  chosen_station <- co_prec[co_prec$STATION %in% STATION.chosen,]
+  pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COBO0014", na.action = na.pass)
+  
 
 
 
@@ -422,34 +435,35 @@ pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COBO0014", na.actio
   
 # Spatial autocorrelation- quantifies the extent to which near observations of a process are more similar than distant observations in space
 
-  # measuring autocorrelation in point data 
-  # use a semivariogram- measures how the variance in the difference between observations of a process increases as the distance between measurement locations increases
+# measuring autocorrelation in point data 
+# use a semivariogram- measures how the variance in the difference between observations of a process increases as the distance between measurement locations increases
 
 # the four panes show the semivariance centred on 0, 45, 90 and 135°
 # only need to look at angles up to 135 bc the remianing angles ar eopposite and identical 
 # the rate of increase in semivariance is different in different directions. This indicates anisotropy, and has implications for modelling
 
 
-  # variogram plot for precip
-  library(gstat)
-  coords = list(projectMercator(co_prec[,3], co_prec[,4]))
-  
-  plot(variogram(list(co_prec$PRCP), locations=coords))
-  
-  
-  library(geoR)
-  # so have to make a variogram with all of the precip values - doesnt load points 
-  coords = list(projectMercator(co_prec[,3], co_prec[,4]))
-  precip = list(mean_monthly_prcp$mean_precip)
-  plot(variogram(precip, locations=coords))
-  
-  
-  # look at summary of distances between stations
-  library(geoR)
-  dists <- dist(co_prec[,3:4])
-  
- breaks = seq(0, 1.5, l =11)
- variog
+
+# variogram plot for precip
+library(gstat)
+coords = list(projectMercator(co_prec[,3], co_prec[,4]))
+
+plot(variogram(list(co_prec$PRCP), locations=coords))
+
+
+library(geoR)
+# so have to make a variogram with all of the precip values - doesnt load points 
+coords = list(projectMercator(co_prec[,3], co_prec[,4]))
+precip = list(mean_monthly_prcp$mean_precip)
+plot(variogram(precip, locations=coords))
+
+
+# look at summary of distances between stations
+library(geoR)
+dists <- dist(co_prec[,3:4])
+
+breaks = seq(0, 1.5, l =11)
+variog
   
 
 
@@ -459,8 +473,7 @@ pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COBO0014", na.actio
 
 # Spatio-Temporal Autocorrelation
 # use space-time semi-variogram data to examine the point data 
-
- # store the data in a spacio-temporal datafreame (STDF) using the space-time package
+# store the data in a spatio-temporal dataframe (STDF) using the space-time package
 
  
  library(spacetime)
@@ -469,7 +482,7 @@ pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COBO0014", na.actio
  # time <- co_prec$DATE
  time <- seq(as.Date("2013-01-01"), length = 52, by = "year")
  precip_matrix<-data.matrix(co_prec[7])
- # store the data in a spacio-temporal dataframe 
+ # store the data in a spatio-temporal dataframe 
  stfdf <- STFDF(pts, time, data.frame(as.vector(t(precip_matrix))))
  names(stfdf@data) <- "Precipitation"
 
@@ -481,60 +494,5 @@ pacf(chosen_station$PRCP, lag.max=50, main="PACF, station US1COBO0014", na.actio
 
 
  
- 
- 
- 
- 
- # Preprocessing
- # - remove NA values- impute these with the mean
- # - scale the data. precip data is already standardised- attributes have a mean of 0 and sd of 1
- 
- 
- # check if PRCP has been standardised already 
- # check mean. 0.06
- mean_daily_prec <- mean(co_prec$PRCP, na.rm = TRUE) 
- mean_daily_prec
- 
- # get SD. 0.186
- sd(co_prec$PRCP, na.rm = TRUE)
- 
- 
- # scale. divides wach value by its standard deviation
- library(caret)
- scale_PRCP <- preProcess(co_prec[7], method=c("scale"))
- print(scale_PRCP)
- 
- 
- # remove or impute NAs with the column mean- ML cant handle NA values 
 
-#  co_prec$PRCP[is.na(co_prec$PRCP)] <- round(mean(co_prec$PRCP, na.rm = TRUE))
-#  head(co_prec$PRCP, 50)
- 
- # loop over for all columns
-#  for(i in 1:ncol(data)){
- #  data[is.na(data[,i]), i] <- mean(data[,i], na.rm = TRUE)
-# }
- 
- library(imputeTS)
- cleaned_precip_data <- na_mean(co_prec)
- 
- 
- # remove unecessary columns 
- cleaned_precip_data$WT01 <- NULL
- cleaned_precip_data$WT03 <- NULL
- cleaned_precip_data$WT04 <- NULL
- cleaned_precip_data$WT05 <- NULL
- cleaned_precip_data$WT06 <- NULL
- cleaned_precip_data$WT11 <- NULL
- cleaned_precip_data$year <- NULL
- cleaned_precip_data$month <- NULL
- cleaned_precip_data$NAME <- NULL
- 
- 
- 
- # check columns have been removed 
- head(cleaned_precip_data, 10)
- 
- 
- 
 

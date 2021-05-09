@@ -220,34 +220,39 @@ rf
 importance <- rf$variable.importance/max(rf$variable.importance)
 importance
 
-
+# TRAIN
 # fit the model on training data 
-train_pred <- predict(rf, train, type="quantiles", quantiles=quantiles)$predictions
+s.prec = predict(rf, train)
+data.frame(Obs=train$PRCP, Predic=s.prec$predictions)
 
 
-# test the accuracy on TRAIN (with leave one location out-cross-validation)
+# model accuracy on TRAIN (with leave one location out-cross-validation)
 cv.PRCP = indices(train, locations.sp, st_model, idcol="STATION", nfold=5, pars.ranger)
 cv.PRCP = do.call(rbind, cv.PRCP)
 
-# ????????????
-## root mean square error RMSE for TRAIN
-sqrt(mean((cv.PRCP$Observed - cv.PRCP$Predicted)^2, na.rm = T))
+## root mean square error (RMSE) for TRAIN
+sqrt(mean((cv.PRCP$Obs - cv.PRCP$Predic)^2, na.rm = T))
 
 
+# TEST
+# fit model on test data
+s.prec = predict(rf, test)
+data.frame(Observ=train$PRCP, Predictions=s.prec$predictions)
 
-# test the accuracy on TEST (with leave one location out-cross-validation)
+
+# model accuracy on TEST (with leave one location out-cross-validation)
 cv.PRCP = indices(test, locations.sp, st_model, idcol="STATION", nfold=5, pars.ranger)
 cv.PRCP = do.call(rbind, cv.PRCP)
 
 
-# ????????????
-## root mean square error RMSE for TEST
-sqrt(mean((cv.PRCP$Observed - cv.PRCP$Predicted)^2, na.rm = T))
+## RMSE for TEST
+sqrt(mean((cv.PRCP$Observ - cv.PRCP$Predictions)^2, na.rm = T))
+
+
 
 
 
 # plot confusion matrices
-
 # Plot map of the predicted vs observed 
 
 
