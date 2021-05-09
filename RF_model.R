@@ -139,6 +139,26 @@ head(cleaned_precip_data, 10)
 library(caret)
 set.seed(1)
 
+# create the s-t model (which will predict rainfall as a function of:
+# covariates, space-buffer distances- and time-cumulative_date and doy-)
+st_model <- as.formula(paste("PRCP ~ cumulative_date + elev_1km + +PRISM_prec + dayofyear +", dist_elev_grid))
+st_model
+
+
+library(plyr)
+# bind/join together 
+grid_and_locations.prec <- do.call(cbind, list(locations.sp@data, over(locations.sp, grid.distP), over(locations.sp, raster_prcp_elev[c("PRISM_prec", "elev_1km")])))
+joined.prec <- plyr::join(train, grid_and_locations.prec)
+# check it has joined
+joined.prec
+
+
+joined.prec <- joined.prec[complete.cases(joined.prec[,c("PRCP","elev_1km","cumulative_date")]),]
+
+# for speed can fit on smaller sample size 
+joined.prec.s <- joined.prec[sample.int(size=1000, nrow(joined.prec)),]
+
+
 # Split into train and test blocks
 # year <- cleaned_precip_data$year
 # test <- cleaned_precip_data %>% 
@@ -148,39 +168,20 @@ set.seed(1)
 # head(test, 10)
 
 
+
 # split train/test 80/20%. 
 # the order of dates have been removed so can split 80/20 randomly
-train_test_split <- sample(1:nrow(cleaned_precip_data), size = 0.8*nrow(cleaned_precip_data))
+train_test_split <- sample(1:nrow(joined.prec), size = 0.8*nrow(joined.prec))
 
 # train- include only elements in index
-train <- cleaned_precip_data [train_test_split, ]
+train <- joined.prec [train_test_split, ]
 
 # test- include all but the elements in the index
-test <- cleaned_precip_data [-train_test_split, ]
+test <- joined.prec [-train_test_split, ]
 
 # check the data has been split
 head(test, 10)
-
-
-# create the s-t model (which will predict rainfall as a function of:
-# covariates, space-buffer distances- and time-cumulative_date and doy-)
-st_model <- as.formula(paste("PRCP ~ cumulative_date + elev_1km + +PRISM_prec + dayofyear +", dist_elev_grid))
-st_model
-
-
-
-# CHANGE THE NAMES OF THESE!!!!!!!
-ov.prec <- do.call(cbind, list(locations.sp@data, over(locations.sp, grid.distP), over(locations.sp, raster_prcp_elev[c("PRISM_prec", "elev_1km")])))
-rm.prec <- plyr::join(train, ov.prec)
-rm.prec
-
-
-rm.prec <- rm.prec[complete.cases(rm.prec[,c("PRCP","elev_1km","cumulative_date")]),]
-# use a sample sie of 2000 because its a large dataset
-
-
-rm.prec.s <- rm.prec[sample.int(size=2000, nrow(rm.prec)),]
-
+head(train, 10)
 
 
 
@@ -195,69 +196,59 @@ str(indices)
 
 
 
-rf <- train(predictors,
-               response,
-               method='rf',
-               mtry=212,
-               seed=1,
-               num.trees=150
-               trControl=trainControl(method="cv", index= indices$index))
-
-
-
 # tuned the hyperparameters using tuneRanger
 # ntree = 150 and mtry 212 are optimal
 
 
-# OR THIS ONE- TRY BOTH MODELS
-# FIT the rf model on the data 
+# takes half an hour to fit all trees 
+# build the rf model on the data
+
+# trControl=trainControl(method="cv", index= indices$index)
+
 library(ranger)
 rf <- ranger(formula = st_model,
-                 data = rm.prec,
+                 data = joined.prec,
                  mtry=200,
                  seed = 1, 
                  num.trees=150,
-                 importance = "impurity", 
+                 importance = "impurity",
                  quantreg=TRUE)
 rf
 
 
-
-
-
 # Variable importance
-# Using the importance()  function to calculate the importance of each variable
-importance <- as.data.frame(sort(importance(rf)[,1],decreasing = TRUE),optional = T)
-names(importance) <- "% Inc MSE"
+importance <- rf$variable.importance/max(rf$variable.importance)
 importance
 
-barplot(-sort(-importance(rf))) # Variable importance
+
+# fit the model on training data 
+train_pred <- predict(rf, train, type="quantiles", quantiles=quantiles)$predictions
+
+
+# test the accuracy on TRAIN (with leave one location out-cross-validation)
+cv.PRCP = indices(train, locations.sp, st_model, idcol="STATION", nfold=5, pars.ranger)
+cv.PRCP = do.call(rbind, cv.PRCP)
+
+# ????????????
+## root mean square error RMSE for TRAIN
+sqrt(mean((cv.PRCP$Observed - cv.PRCP$Predicted)^2, na.rm = T))
 
 
 
-# then evaluate the rf model. 
-sd(cleaned_precip_data$PRCP, na.rm = TRUE)
+# test the accuracy on TEST (with leave one location out-cross-validation)
+cv.PRCP = indices(test, locations.sp, st_model, idcol="STATION", nfold=5, pars.ranger)
+cv.PRCP = do.call(rbind, cv.PRCP)
+
+
+# ????????????
+## root mean square error RMSE for TEST
+sqrt(mean((cv.PRCP$Observed - cv.PRCP$Predicted)^2, na.rm = T))
 
 
 
-# predict 
-rain.rfd1 <- predict(m1.rain, cbind(swiss.dist0@data, swiss1km@data), type="quantiles", quantiles = quantiles)$predictions
+# plot confusion matrices
 
-
-
-# cross validation (LLOCV) for accuracy score of the model on train data 
-
-
-
-
-# fit the model on TEST data
-
-
-
-
-
-
-# plot a map of the predictions vs prediction accuracy
+# Plot map of the predicted vs observed 
 
 
 
