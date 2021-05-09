@@ -190,8 +190,7 @@ indices <- CreateSpacetimeFolds(cleaned_precip_data,spacevar="STATION",
 str(indices)
 indices
 
-# make a cross val function to use
-cv_func = function(indices)
+
   
 
 # takes half an hour to fit all trees 
@@ -234,9 +233,15 @@ fit_control <- trainControl(method="cv",index=indices$index,
 # ntree = 150 and mtry 200 are optimal
 
 
-# set seed
-set.seed(825)
+# Random forests are highly sensitive to correlated predictors: it splits their importance
+# plot from https://brunaw.com/slides/rladies-dublin/RF/intro-to-rf.html#31 
+library(corrplot)
+library(dplyr)
+corrplot::corrplot(cor(cleaned_precip_data %>% select_if(is.numeric), 
+                       method = "spearman"))
 
+
+# remove the correlated variables and build the rf model
 # fit the model on training data WITH LLO cv
 library(ranger)
 rf <- ranger(formula = st_model,
@@ -254,16 +259,14 @@ rf
 importance <- rf$variable.importance/max(rf$variable.importance)
 importance
 
-# plot variable importance. covariance matrix.
-
-
-
-
 
 # TEST
-# fit model on test data (with leave one location out-cross-validation)
-# predict on the test (new, unseen data) and calculate RMSE
+# predict on the test (new, unseen data) (with leave one location out-cross-validation) and calculate RMSE
+# adapted from https://stackoverflow.com/questions/60685866/how-do-i-find-out-the-rmse-of-a-random-forest-in-r 
 library(Metrics)
+
+# set seed
+set.seed(825)
 
 res = lapply(c(111,222),function(i){
   set.seed(i)
@@ -285,23 +288,22 @@ data.frame(seed=i,
 res = do.call(rbind,res)
 head(res)
 
+# RMSE is 0.0373
+
 
 # compare predicted outcome and true outcome
-confusionMatrix(pred_values, as.factor(test$PRCP))
+confusionMatrix(pred_values, as.factor(actual_values))
 
 
 
 
-
-
-
-
-
-
-
-
-# Plot map of the predicted vs observed 
-
+# Plot the predicted vs observed 
+# adapted from https://brunaw.com/slides/rladies-dublin/RF/intro-to-rf.html#26 
+test %>% 
+  mutate(predicted = predict(rf, test)$predictions) %>% 
+  ggplot(aes(predicted, test$PRCP)) +
+  geom_point(colour = "#ff6767", alpha = 0.3) +
+  labs(title = "Predicted and observed") +  theme_bw(18)
 
 
 
