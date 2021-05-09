@@ -129,22 +129,6 @@ cleaned_precip_data$cumulative_date   = floor(unclass(as.POSIXct(as.POSIXct(past
 head(cleaned_precip_data, 10) 
 
 
-
-
-
-
-# MAKE AND FIT THE RF MODEL
-
-
-library(caret)
-set.seed(1)
-
-# create the s-t model (which will predict rainfall as a function of:
-# covariates, space-buffer distances- and time-cumulative_date and doy-)
-st_model <- as.formula(paste("PRCP ~ cumulative_date + elev_1km + +PRISM_prec + dayofyear +", dist_elev_grid))
-st_model
-
-
 library(plyr)
 # bind/join together 
 grid_and_locations.prec <- do.call(cbind, list(locations.sp@data, over(locations.sp, grid.distP), over(locations.sp, raster_prcp_elev[c("PRISM_prec", "elev_1km")])))
@@ -184,6 +168,17 @@ head(test, 10)
 head(train, 10)
 
 
+# MAKE AND FIT THE RF MODEL
+
+
+library(caret)
+set.seed(1)
+
+# create the s-t model (which will predict rainfall as a function of:
+# covariates, space-buffer distances- and time-cumulative_date and doy-)
+st_model <- as.formula(paste("PRCP ~ cumulative_date + elev_1km + +PRISM_prec + dayofyear +", dist_elev_grid))
+st_model
+
 
 # CREATE SPACE-TIME FOLDS
 # https://rdrr.io/cran/CAST/man/CreateSpacetimeFolds.html 
@@ -193,26 +188,65 @@ library(CAST)
 indices <- CreateSpacetimeFolds(cleaned_precip_data,spacevar="STATION",
                                 k=length(unique(cleaned_precip_data$STATION)))
 str(indices)
+indices
 
-
-
-# tuned the hyperparameters using tuneRanger
-# ntree = 150 and mtry 212 are optimal
-
+# make a cross val function to use
+cv_func = function(indices)
+  
 
 # takes half an hour to fit all trees 
 # build the rf model on the data
 
 # trControl=trainControl(method="cv", index= indices$index)
+  
+  
 
+# split the training set again to tune hyperparameters:
+# create another testing and training set
+# in_training <- createDataPartition(train, p = .75, list = FALSE)
+# training_2 <- train[ in_training,]
+# testing_2  <- train[-in_training,]
+
+
+# use the s-t LLO CV
+fit_control <- trainControl(method="cv",index=indices$index,
+                            indexOut=indices$indexOut)
+
+
+  
+
+# Tuning hyperparameters using tuneGrid =
+# rf_grid <- expand.grid(mtry = c(20, 50, 100, 150, 200),
+#                       splitrule = c("gini", "extratrees"),
+#                       min.node.size = c(1, 3, 5))
+# rf_grid
+
+
+# then fit model with the parameter grid to find best accuracy
+# library(ranger)
+# rf_tune_fit <- ranger(formula = st_model,
+#             data = train,
+#             importance = "impurity",
+#             trControl=fit_control,
+#             tuneGrid = rf_grid)
+# rf_tune_fit
+
+# ntree = 150 and mtry 200 are optimal
+
+
+# set seed
+set.seed(825)
+
+# fit the model on training data WITH LLO cv
 library(ranger)
 rf <- ranger(formula = st_model,
-                 data = joined.prec,
+                 data = train,
                  mtry=200,
                  seed = 1, 
                  num.trees=150,
                  importance = "impurity",
-                 quantreg=TRUE)
+                 quantreg=TRUE,
+                 trControl=fit_control)
 rf
 
 
@@ -220,39 +254,52 @@ rf
 importance <- rf$variable.importance/max(rf$variable.importance)
 importance
 
-# TRAIN
-# fit the model on training data 
-s.prec = predict(rf, train)
-data.frame(Obs=train$PRCP, Predic=s.prec$predictions)
+# plot variable importance. covariance matrix.
 
 
-# model accuracy on TRAIN (with leave one location out-cross-validation)
-cv.PRCP = indices(train, locations.sp, st_model, idcol="STATION", nfold=5, pars.ranger)
-cv.PRCP = do.call(rbind, cv.PRCP)
 
-## root mean square error (RMSE) for TRAIN
-sqrt(mean((cv.PRCP$Obs - cv.PRCP$Predic)^2, na.rm = T))
 
 
 # TEST
-# fit model on test data
-s.prec = predict(rf, test)
-data.frame(Observ=train$PRCP, Predictions=s.prec$predictions)
+# fit model on test data (with leave one location out-cross-validation)
+# predict on the test (new, unseen data) and calculate RMSE
+library(Metrics)
+
+res = lapply(c(111,222),function(i){
+  set.seed(i)
+  fit = rf
+  
+pred_values = predict(fit,test)$predictions
+
+# pred_rf <- predict(rf,test)$predictions
+actual_values = test$PRCP
 
 
-# model accuracy on TEST (with leave one location out-cross-validation)
-cv.PRCP = indices(test, locations.sp, st_model, idcol="STATION", nfold=5, pars.ranger)
-cv.PRCP = do.call(rbind, cv.PRCP)
+data.frame(seed=i,
+           metrics_rmse = rmse(pred_values,actual_values),
+           cal_rmse = mean((pred_values-actual_values)^2,  na.rm = T)^0.5
+)
+})
 
 
-## RMSE for TEST
-sqrt(mean((cv.PRCP$Observ - cv.PRCP$Predictions)^2, na.rm = T))
+res = do.call(rbind,res)
+head(res)
+
+
+# compare predicted outcome and true outcome
+confusionMatrix(pred_values, as.factor(test$PRCP))
 
 
 
 
 
-# plot confusion matrices
+
+
+
+
+
+
+
 # Plot map of the predicted vs observed 
 
 
