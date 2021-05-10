@@ -35,10 +35,8 @@ abline(v=mean_elev, col="red")
 # Preprocessing - not much preprocessing as rf is very robust 
 # - remove NA values- impute these with the mean
 # - no need to scale the data for RF. 
-# - create/ remove columns 
-# DONT need to difference the data because RF benefits from the ability to model non-linear data
-# DONT need to standardise the data. scale divides each value by its standard deviation
-# find correlation between variables ?
+# - create covariates/ remove columns 
+# find correlation between variables 
 
 
 
