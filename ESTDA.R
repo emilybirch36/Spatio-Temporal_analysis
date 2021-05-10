@@ -540,7 +540,7 @@ library(geoR)
 
 library(spacetime)
 # pts <- SpatialPoints(precip_df[,1:2], 
-                      proj4string=CRS("+init=epsg:4326 +proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"))
+ #                     proj4string=CRS("+init=epsg:4326 +proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"))
  # time <- precip_df$DATE
 # time <- seq(as.Date("2013-01-01"), length = 52, by = "year")
 # precip_matrix<-data.matrix(precip_df[2])
